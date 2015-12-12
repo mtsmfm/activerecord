@@ -149,8 +149,10 @@ false` as an argument. This technique should be used with caution.
 
 ### `valid?` and `invalid?`
 
-To verify whether or not an object is valid, Rails uses the `valid?` method.
-You can also use this method on your own. `valid?` triggers your validations
+Before saving an ActiveRecord object, Rails runs your validations.
+If these validations produce any errors, Rails does not save the object.
+
+You can also run these validations on your own. `valid?` triggers your validations
 and returns true if no errors were found in the object, and false otherwise.
 As you saw above:
 
@@ -168,8 +170,9 @@ through the `errors.messages` instance method, which returns a collection of err
 By definition, an object is valid if this collection is empty after running
 validations.
 
-Note that an object instantiated with `new` will not report errors even if it's
-technically invalid, because validations are not run when using `new`.
+Note that an object instantiated with `new` will not report errors
+even if it's technically invalid, because validations are automatically run
+only when the object is saved, such as with the `create` or `save` methods.
 
 ```ruby
 class Person < ActiveRecord::Base
@@ -451,21 +454,6 @@ number corresponding to the length constraint being used. You can still use the
 class Person < ActiveRecord::Base
   validates :bio, length: { maximum: 1000,
     too_long: "%{count} characters is the maximum allowed" }
-end
-```
-
-This helper counts characters by default, but you can split the value in a
-different way using the `:tokenizer` option:
-
-```ruby
-class Essay < ActiveRecord::Base
-  validates :content, length: {
-    minimum: 300,
-    maximum: 400,
-    tokenizer: lambda { |str| str.split(/\s+/) },
-    too_short: "must have at least %{count} words",
-    too_long: "must have at most %{count} words"
-  }
 end
 ```
 
@@ -789,7 +777,36 @@ Topic.create(title: nil).valid? # => true
 As you've already seen, the `:message` option lets you specify the message that
 will be added to the `errors` collection when validation fails. When this
 option is not used, Active Record will use the respective default error message
-for each validation helper.
+for each validation helper. The `:message` option accepts a `String` or `Proc`.
+
+A `String` `:message` value can optionally contain any/all of `%{value}`,
+`%{attribute}`, and `%{model}` which will be dynamically replaced when
+validation fails.
+
+A `Proc` `:message` value is given two arguments: a message key for i18n, and
+a hash with `:model`, `:attribute`, and `:value` key-value pairs.
+
+```ruby
+class Person < ActiveRecord::Base
+  # Hard-coded message
+  validates :name, presence: { message: "must be given please" }
+
+  # Message with dynamic attribute value. %{value} will be replaced with
+  # the actual value of the attribute. %{attribute} and %{model} also
+  # available.
+  validates :age, numericality: { message: "%{value} seems wrong" }
+
+  # Proc
+  validates :username,
+    uniqueness: {
+      # key = "activerecord.errors.models.person.attributes.username.taken"
+      # data = { model: "Person", attribute: "Username", value: <username> }
+      message: ->(key, data) do
+        "#{data[:value]} taken! Try again #{Time.zone.tomorrow}"
+      end
+    }
+end
+```
 
 ### `:on`
 
@@ -986,6 +1003,10 @@ class method, passing in the symbols for the validation methods' names.
 You can pass more than one symbol for each class method and the respective
 validations will be run in the same order as they were registered.
 
+The `valid?` method will verify that the errors collection is empty,
+so your custom validation methods should add errors to it when you
+wish validation to fail:
+
 ```ruby
 class Invoice < ActiveRecord::Base
   validate :expiration_date_cannot_be_in_the_past,
@@ -1005,9 +1026,10 @@ class Invoice < ActiveRecord::Base
 end
 ```
 
-By default such validations will run every time you call `valid?`. It is also
-possible to control when to run these custom validations by giving an `:on`
-option to the `validate` method, with either: `:create` or `:update`.
+By default, such validations will run every time you call `valid?`
+or save the object. But it is also possible to control when to run these
+custom validations by giving an `:on` option to the `validate` method,
+with either: `:create` or `:update`.
 
 ```ruby
 class Invoice < ActiveRecord::Base

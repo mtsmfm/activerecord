@@ -1,3 +1,87 @@
+*   `ActiveSupport::Cache::Store#namespaced_key`, 
+    `ActiveSupport::Cache::MemCachedStore#escape_key`, and 
+    `ActiveSupport::Cache::FileStore#key_file_path` 
+    are deprecated and replaced with `normalize_key` that now calls `super`.
+    
+    `ActiveSupport::Cache::LocaleCache#set_cache_value` is deprecated and replaced with `write_cache_value`.
+    
+    *Michael Grosser*
+
+*   Implements an evented file system monitor to asynchronously detect changes
+    in the application source code, routes, locales, etc.
+
+    To opt-in load the [listen](https://github.com/guard/listen) gem in `Gemfile`:
+
+        group :development do
+          gem 'listen', '~> 3.0.4'
+        end
+
+    *Puneet Agarwal* and *Xavier Noria*
+
+*   Added `Time.days_in_year` to return the number of days in the given year, or the
+    current year if no argument is provided.
+
+    *Jon Pascoe*
+
+*   Updated `parameterize` to preserve the case of a string, optionally.
+
+    Example:
+
+        parameterize("Donald E. Knuth", separator: '_') # => "donald_e_knuth"
+        parameterize("Donald E. Knuth", preserve_case: true) # => "Donald-E-Knuth"
+
+    *Swaathi Kakarla*
+
+*   `HashWithIndifferentAccess.new` respects the default value or proc on objects
+    that respond to `#to_hash`. `.new_from_hash_copying_default` simply invokes `.new`.
+    All calls to `.new_from_hash_copying_default` are replaced with `.new`.
+
+    *Gordon Chan*
+
+*   Change Integer#year to return a Fixnum instead of a Float to improve
+    consistency.
+
+    Integer#years returned a Float while the rest of the accompanying methods
+    (days, weeks, months, etc.) return a Fixnum.
+
+    Before:
+
+    1.year # => 31557600.0
+
+    After:
+
+    1.year # => 31557600
+
+    *Konstantinos Rousis*
+
+*   Handle invalid UTF-8 strings when HTML escaping
+
+    Use `ActiveSupport::Multibyte::Unicode.tidy_bytes` to handle invalid UTF-8
+    strings in `ERB::Util.unwrapped_html_escape` and `ERB::Util.html_escape_once`.
+    Prevents user-entered input passed from a querystring into a form field from
+    causing invalid byte sequence errors.
+
+    *Grey Baker*
+
+*   Update `ActiveSupport::Multibyte::Chars#slice!` to return `nil` if the
+    arguments are out of bounds, to mirror the behavior of `String#slice!`
+
+    *Gourav Tiwari*
+
+*   Fix `number_to_human` so that 999999999 rounds to "1 Billion" instead of
+    "1000 Million".
+
+    *Max Jacobson*
+
+*   Fix `ActiveSupport::Deprecation#deprecate_methods` to report using the
+    current deprecator instance, where applicable.
+
+    *Brandon Dunne*
+
+*   `Cache#fetch` instrumentation marks whether it was a `:hit`.
+
+    *Robin Clowers*
+
 *   `assert_difference` and `assert_no_difference` now returns the result of the
     yielded block.
 

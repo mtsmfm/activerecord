@@ -210,11 +210,11 @@ module ActionController
   #       # Simulate a POST response with the given HTTP parameters.
   #       post(:create, params: { book: { title: "Love Hina" }})
   #
-  #       # Assert that the controller tried to redirect us to
+  #       # Asserts that the controller tried to redirect us to
   #       # the created book's URI.
   #       assert_response :found
   #
-  #       # Assert that the controller really put the book in the database.
+  #       # Asserts that the controller really put the book in the database.
   #       assert_not_nil Book.find_by(title: "Love Hina")
   #     end
   #   end
@@ -509,20 +509,19 @@ module ActionController
           end
         end
 
-        @controller.request  = @request
-        @controller.response = @response
-
         @request.fetch_header("SCRIPT_NAME") do |k|
           @request.set_header k, @controller.config.relative_url_root
         end
 
         @controller.recycle!
-        @controller.process(action)
+        @controller.dispatch(action, @request, @response)
+        @request = @controller.request
+        @response = @controller.response
 
         @request.delete_header 'HTTP_COOKIE'
 
         if @request.have_cookie_jar?
-          unless @response.committed?
+          unless @request.cookie_jar.committed?
             @request.cookie_jar.write(@response)
             self.cookies.update(@request.cookie_jar.instance_variable_get(:@cookies))
           end

@@ -177,7 +177,7 @@ module ActiveRecord
         hash = args.first
 
         return super if hash.values.any? { |v|
-          v.nil? || Array === v || Hash === v
+          v.nil? || Array === v || Hash === v || Relation === v
         }
 
         # We can't cache Post.find_by(author: david) ...yet
@@ -193,8 +193,8 @@ module ActiveRecord
         }
         begin
           statement.execute(hash.values, self, connection).first
-        rescue TypeError => e
-          raise ActiveRecord::StatementInvalid.new(e.message, e)
+        rescue TypeError
+          raise ActiveRecord::StatementInvalid
         rescue RangeError
           nil
         end
@@ -310,7 +310,7 @@ module ActiveRecord
 
     # Initialize an empty model object from +coder+. +coder+ should be
     # the result of previously encoding an Active Record model, using
-    # `encode_with`
+    # #encode_with.
     #
     #   class Post < ActiveRecord::Base
     #   end
@@ -379,7 +379,7 @@ module ActiveRecord
 
     # Populate +coder+ with attributes about this record that should be
     # serialized. The structure of +coder+ defined in this method is
-    # guaranteed to match the structure of +coder+ passed to the +init_with+
+    # guaranteed to match the structure of +coder+ passed to the #init_with
     # method.
     #
     # Example:
@@ -477,7 +477,7 @@ module ActiveRecord
       "#<#{self.class} #{inspection}>"
     end
 
-    # Takes a PP and prettily prints this record to it, allowing you to get a nice result from `pp record`
+    # Takes a PP and prettily prints this record to it, allowing you to get a nice result from <tt>pp record</tt>
     # when pp is required.
     def pretty_print(pp)
       return super if custom_inspect_method_defined?

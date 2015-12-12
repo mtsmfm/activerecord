@@ -1090,7 +1090,7 @@ config.active_record.auto_explain_threshold_in_seconds = 0.5
 
 ### config/environments/test.rb
 
-The `mass_assignment_sanitizer` configuration setting should also be be added to `config/environments/test.rb`:
+The `mass_assignment_sanitizer` configuration setting should also be added to `config/environments/test.rb`:
 
 ```ruby
 # Raise exception on mass assignment protection for Active Record models
@@ -1191,8 +1191,10 @@ You can help test performance with these additions to your test environment:
 
 ```ruby
 # Configure static asset server for tests with Cache-Control for performance
-config.serve_static_files = true
-config.static_cache_control = 'public, max-age=3600'
+config.public_file_server.enabled = true
+config.public_file_server.headers = {
+  'Cache-Control' => 'public, max-age=3600'
+}
 ```
 
 ### config/initializers/wrap_parameters.rb

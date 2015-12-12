@@ -1,5 +1,5 @@
 language: ruby
-sudo: false
+sudo: required
 script: 'ci/travis.rb'
 before_install:
   - gem install bundler
@@ -9,12 +9,12 @@ before_install:
   - make
   - ./beanstalkd &
   - cd $TRAVIS_BUILD_DIR
+  - docker pull postgres:9.4
+  - docker run -v /run/postgresql:/run/postgresql -e POSTGRES_PASSWORD='' -e POSTGRES_USER='travis' -d postgres:9.4.2
 before_script:
   - bundle update
 cache: bundler
 env:
-  global:
-    - JRUBY_OPTS='-J-Xmx1024M'
   matrix:
     - "GEM=railties"
     - "GEM=ap"
@@ -50,5 +50,4 @@ services:
   - memcached
   - redis
   - rabbitmq
-addons:
-  postgresql: "9.3"
+  - docker

@@ -14,7 +14,7 @@ require "models/vertex"
 
 module ActiveRecord
   class WhereTest < ActiveRecord::TestCase
-    fixtures :posts, :edges, :authors, :binaries, :essays
+    fixtures :posts, :edges, :authors, :author_addresses, :binaries, :essays
 
     def test_where_copies_bind_params
       author = authors(:david)
@@ -301,6 +301,10 @@ module ActiveRecord
       params = protected_params.new(name: author.name)
       assert_raises(ActiveModel::ForbiddenAttributesError) { Author.where(params) }
       assert_equal author, Author.where(params.permit!).first
+    end
+
+    def test_where_with_unsupported_arguments
+      assert_raises(ArgumentError) { Author.where(42) }
     end
   end
 end

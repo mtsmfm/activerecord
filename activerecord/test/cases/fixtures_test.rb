@@ -708,7 +708,7 @@ end
 
 class FasterFixturesTest < ActiveRecord::TestCase
   self.use_transactional_tests = false
-  fixtures :categories, :authors
+  fixtures :categories, :authors, :author_addresses
 
   def load_extra_fixture(name)
     fixture = create_fixtures(name).first
@@ -953,5 +953,19 @@ class FixturesWithAbstractBelongsTo < ActiveRecord::TestCase
   test "creates fixtures with belongs_to associations defined in abstract base classes" do
     assert_not_nil doubloons(:blackbeards_doubloon)
     assert_equal pirates(:blackbeard), doubloons(:blackbeards_doubloon).pirate
+  end
+end
+
+class FixtureClassNamesTest < ActiveRecord::TestCase
+  def setup
+    @saved_cache = self.fixture_class_names.dup
+  end
+
+  def teardown
+    self.fixture_class_names.replace(@saved_cache)
+  end
+
+  test "fixture_class_names returns nil for unregistered identifier" do
+    assert_nil self.fixture_class_names['unregistered_identifier']
   end
 end

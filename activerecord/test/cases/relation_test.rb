@@ -6,7 +6,7 @@ require 'models/rating'
 
 module ActiveRecord
   class RelationTest < ActiveRecord::TestCase
-    fixtures :posts, :comments, :authors
+    fixtures :posts, :comments, :authors, :author_addresses
 
     class FakeKlass < Struct.new(:table_name, :name)
       extend ActiveRecord::Delegation::DelegateCache
@@ -19,6 +19,10 @@ module ActiveRecord
 
       def self.table_name
         'fake_table'
+      end
+
+      def self.sanitize_sql_for_order(sql)
+        sql
       end
     end
 
@@ -56,9 +60,6 @@ module ActiveRecord
 
     def test_empty_where_values_hash
       relation = Relation.new(FakeKlass, :b, nil)
-      assert_equal({}, relation.where_values_hash)
-
-      relation.where! :hello
       assert_equal({}, relation.where_values_hash)
     end
 
@@ -153,10 +154,10 @@ module ActiveRecord
     end
 
     test 'merging a hash into a relation' do
-      relation = Relation.new(FakeKlass, :b, nil)
-      relation = relation.merge where: :lol, readonly: true
+      relation = Relation.new(Post, Post.arel_table, Post.predicate_builder)
+      relation = relation.merge where: {name: :lol}, readonly: true
 
-      assert_equal Relation::WhereClause.new([:lol], []), relation.where_clause
+      assert_equal({"name"=>:lol}, relation.where_clause.to_h)
       assert_equal true, relation.readonly_value
     end
 
@@ -185,7 +186,7 @@ module ActiveRecord
     end
 
     test '#values returns a dup of the values' do
-      relation = Relation.new(FakeKlass, :b, nil).where! :foo
+      relation = Relation.new(Post, Post.arel_table, Post.predicate_builder).where!(name: :foo)
       values   = relation.values
 
       values[:where] = nil
@@ -232,6 +233,13 @@ module ActiveRecord
       relation = Post.joins(:comments).merge Comment.joins(:ratings)
 
       assert_equal 3, relation.where(id: post.id).pluck(:id).size
+    end
+
+    def test_merge_raises_with_invalid_argument
+      assert_raises ArgumentError do
+        relation = Relation.new(FakeKlass, :b, nil)
+        relation.merge(true)
+      end
     end
 
     def test_respond_to_for_non_selected_element

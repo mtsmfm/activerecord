@@ -16,11 +16,10 @@ module ActiveRecord
       end
 
       client = Mysql2::Client.new(config)
-      options = [config[:host], config[:username], config[:password], config[:database], config[:port], config[:socket], 0]
-      ConnectionAdapters::Mysql2Adapter.new(client, logger, options, config)
+      ConnectionAdapters::Mysql2Adapter.new(client, logger, nil, config)
     rescue Mysql2::Error => error
       if error.message.include?("Unknown database")
-        raise ActiveRecord::NoDatabaseError.new(error.message, error)
+        raise ActiveRecord::NoDatabaseError
       else
         raise
       end
@@ -126,7 +125,9 @@ module ActiveRecord
       # Returns an array of arrays containing the field values.
       # Order is the same as that returned by +columns+.
       def select_rows(sql, name = nil, binds = [])
-        execute(sql, name).to_a
+        result = execute(sql, name)
+        @connection.next_result while @connection.more_results?
+        result.to_a
       end
 
       # Executes the SQL statement in the context of this connection.
@@ -140,8 +141,9 @@ module ActiveRecord
         super
       end
 
-      def exec_query(sql, name = 'SQL', binds = [])
+      def exec_query(sql, name = 'SQL', binds = [], prepare: false)
         result = execute(sql, name)
+        @connection.next_result while @connection.more_results?
         ActiveRecord::Result.new(result.fields, result.to_a)
       end
 
@@ -181,10 +183,6 @@ module ActiveRecord
 
       def full_version
         @full_version ||= @connection.server_info[:version]
-      end
-
-      def set_field_encoding field_name
-        field_name
       end
     end
   end

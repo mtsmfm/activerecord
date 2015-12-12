@@ -36,10 +36,9 @@ EOT
 
     def run_command!(command)
       command = parse_command(command)
+
       if COMMAND_WHITELIST.include?(command)
         send(command)
-      else
-        write_error_message(command)
       end
     end
 
@@ -149,26 +148,6 @@ EOT
 
       def write_help_message
         puts HELP_MESSAGE
-      end
-
-      # Output an error message stating that the attempted command is not a valid rails command.
-      # Run the attempted command as a rake command with the --dry-run flag. If successful, suggest
-      # to the user that they possibly meant to run the given rails command as a rake command.
-      # Append the help message.
-      #
-      #   Example:
-      #   $ rails db:migrate
-      #   Error: Command 'db:migrate' not recognized
-      #   Did you mean: `$ rake db:migrate` ?
-      #   (Help message output)
-      #
-      def write_error_message(command)
-        puts "Error: Command '#{command}' not recognized"
-        if %x{rake #{command} --dry-run 2>&1 } && $?.success?
-          puts "Did you mean: `$ rake #{command}` ?\n\n"
-        end
-        write_help_message
-        exit(1)
       end
 
       def parse_command(command)

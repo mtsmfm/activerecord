@@ -38,7 +38,7 @@ module ActiveRecord
       ConnectionAdapters::MysqlAdapter.new(mysql, logger, options, config)
     rescue Mysql::Error => error
       if error.message.include?("Unknown database")
-        raise ActiveRecord::NoDatabaseError.new(error.message, error)
+        raise ActiveRecord::NoDatabaseError
       else
         raise
       end
@@ -82,6 +82,7 @@ module ActiveRecord
         super
         @statements = StatementPool.new(self.class.type_cast_config_to_integer(config.fetch(:statement_limit) { 1000 }))
         @client_encoding = nil
+        @connection_options = connection_options
         connect
       end
 
@@ -102,6 +103,11 @@ module ActiveRecord
         else
           to_enum(:each_hash, result)
         end
+      end
+
+      def new_column(field, default, sql_type_metadata = nil, null = true, default_function = nil, collation = nil) # :nodoc:
+        field = set_field_encoding(field)
+        super
       end
 
       def error_number(exception) # :nodoc:
@@ -235,11 +241,11 @@ module ActiveRecord
         @client_encoding = ENCODINGS[result.rows.last.last]
       end
 
-      def exec_query(sql, name = 'SQL', binds = [])
+      def exec_query(sql, name = 'SQL', binds = [], prepare: false)
         if without_prepared_statement?(binds)
           result_set, affected_rows = exec_without_stmt(sql, name)
         else
-          result_set, affected_rows = exec_stmt(sql, name, binds)
+          result_set, affected_rows = exec_stmt(sql, name, binds, cache_stmt: prepare)
         end
 
         yield affected_rows if block_given?
@@ -378,12 +384,12 @@ module ActiveRecord
 
       private
 
-      def exec_stmt(sql, name, binds)
+      def exec_stmt(sql, name, binds, cache_stmt: false)
         cache = {}
         type_casted_binds = binds.map { |attr| type_cast(attr.value_for_database) }
 
         log(sql, name, binds) do
-          if binds.empty?
+          if !cache_stmt
             stmt = @connection.prepare(sql)
           else
             cache = @statements[sql] ||= {
@@ -399,7 +405,7 @@ module ActiveRecord
             # place when an error occurs. To support older MySQL versions, we
             # need to close the statement and delete the statement from the
             # cache.
-            if binds.empty?
+            if !cache_stmt
               stmt.close
             else
               @statements.delete sql
@@ -417,7 +423,7 @@ module ActiveRecord
           affected_rows = stmt.affected_rows
 
           stmt.free_result
-          stmt.close if binds.empty?
+          stmt.close if !cache_stmt
 
           [result_set, affected_rows]
         end
@@ -463,7 +469,7 @@ module ActiveRecord
         @full_version ||= @connection.server_info
       end
 
-      def set_field_encoding field_name
+      def set_field_encoding(field_name)
         field_name.force_encoding(client_encoding)
         if internal_enc = Encoding.default_internal
           field_name = field_name.encode!(internal_enc)
