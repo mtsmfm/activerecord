@@ -33,6 +33,7 @@ module ActiveRecord
 
     class NullTransaction #:nodoc:
       def initialize; end
+      def state; end
       def closed?; true; end
       def open?; false; end
       def joinable?; false; end
@@ -166,8 +167,13 @@ module ActiveRecord
 
       def commit_transaction
         transaction = @stack.last
-        transaction.before_commit_records
-        @stack.pop
+
+        begin
+          transaction.before_commit_records
+        ensure
+          @stack.pop
+        end
+
         transaction.commit
         transaction.commit_records
       end

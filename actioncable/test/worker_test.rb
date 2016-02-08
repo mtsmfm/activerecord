@@ -13,12 +13,15 @@ class WorkerTest < ActiveSupport::TestCase
     end
 
     def connection
+      self
+    end
+
+    def logger
+      ActionCable.server.logger
     end
   end
 
   setup do
-    Celluloid.boot
-
     @worker = ActionCable::Server::Worker.new
     @receiver = Receiver.new
   end

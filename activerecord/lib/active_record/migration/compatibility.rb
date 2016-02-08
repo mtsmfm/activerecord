@@ -5,6 +5,12 @@ module ActiveRecord
 
       module FourTwoShared
         module TableDefinition
+          def references(*, **options)
+            options[:index] ||= false
+            super
+          end
+          alias :belongs_to :references
+
           def timestamps(*, **options)
             options[:null] = true if options[:null].nil?
             super
@@ -24,6 +30,25 @@ module ActiveRecord
           end
         end
 
+        def change_table(table_name, options = {})
+          if block_given?
+            super(table_name, options) do |t|
+              class << t
+                prepend TableDefinition
+              end
+              yield t
+            end
+          else
+            super
+          end
+        end
+
+        def add_reference(*, **options)
+          options[:index] ||= false
+          super
+        end
+        alias :add_belongs_to :add_reference
+
         def add_timestamps(*, **options)
           options[:null] = true if options[:null].nil?
           super
@@ -41,8 +66,9 @@ module ActiveRecord
         end
 
         def remove_index(table_name, options = {})
-          index_name = index_name_for_remove(table_name, options)
-          execute "DROP INDEX #{quote_column_name(index_name)} ON #{quote_table_name(table_name)}"
+          options = { column: options } unless options.is_a?(Hash)
+          options[:name] = index_name_for_remove(table_name, options)
+          super(table_name, options)
         end
 
         private

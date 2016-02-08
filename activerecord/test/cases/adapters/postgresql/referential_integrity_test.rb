@@ -1,7 +1,45 @@
 require 'cases/helper'
 require 'support/connection_helper'
 
-class PostgreSQLReferentialIntegrityTest < ActiveRecord::PostgreSQLTestCase
+if ActiveRecord::Base.connection.respond_to?(:supports_alter_constraint?) &&
+    ActiveRecord::Base.connection.supports_alter_constraint?
+class PostgreSQLReferentialIntegrityWithTest < ActiveRecord::PostgreSQLTestCase
+  self.use_transactional_tests = false
+
+  include ConnectionHelper
+
+  IS_REFERENTIAL_INTEGRITY_SQL = lambda do |sql|
+    sql.match(/SET CONSTRAINTS ALL DEFERRED/)
+  end
+
+  module ProgrammerMistake
+    def execute(sql)
+      if IS_REFERENTIAL_INTEGRITY_SQL.call(sql)
+        raise ArgumentError, 'something is not right.'
+      else
+        super
+      end
+    end
+  end
+
+  def setup
+    @connection = ActiveRecord::Base.connection
+  end
+
+  def teardown
+    reset_connection
+  end
+
+  def test_errors_bubble_up
+    @connection.extend ProgrammerMistake
+
+    assert_raises ArgumentError do
+      @connection.disable_referential_integrity {}
+    end
+  end
+end
+else
+class PostgreSQLReferentialIntegrityWithDisableTriggerTest < ActiveRecord::PostgreSQLTestCase
   self.use_transactional_tests = false
 
   include ConnectionHelper
@@ -108,4 +146,5 @@ class PostgreSQLReferentialIntegrityTest < ActiveRecord::PostgreSQLTestCase
   def assert_transaction_is_not_broken
     assert_equal 1, @connection.select_value("SELECT 1")
   end
+end
 end

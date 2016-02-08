@@ -5,7 +5,7 @@ require 'models/post'
 
 module ActiveRecord
   class BindParameterTest < ActiveRecord::TestCase
-    fixtures :topics, :authors, :posts
+    fixtures :topics, :authors, :author_addresses, :posts
 
     class LogListener
       attr_accessor :calls
@@ -39,7 +39,7 @@ module ActiveRecord
       end
 
       def test_binds_are_logged
-        sub   = @connection.substitute_at(@pk)
+        sub   = Arel::Nodes::BindParam.new
         binds = [Relation::QueryAttribute.new("id", 1, Type::Value.new)]
         sql   = "select * from topics where id = #{sub.to_sql}"
 

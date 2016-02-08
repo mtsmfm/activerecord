@@ -51,6 +51,9 @@ module Rails
         class_option :skip_active_record, type: :boolean, aliases: '-O', default: false,
                                           desc: 'Skip Active Record files'
 
+        class_option :skip_puma,          type: :boolean, aliases: '-P', default: false,
+                                          desc: 'Skip Puma related files'
+
         class_option :skip_action_cable,  type: :boolean, aliases: '-C', default: false,
                                           desc: 'Skip Action Cable files'
 
@@ -113,10 +116,12 @@ module Rails
       def gemfile_entries
         [rails_gemfile_entry,
          database_gemfile_entry,
+         webserver_gemfile_entry,
          assets_gemfile_entry,
          javascript_gemfile_entry,
          jbuilder_gemfile_entry,
          psych_gemfile_entry,
+         cable_gemfile_entry,
          @extra_entries].flatten.find_all(&@gem_filter)
       end
 
@@ -168,6 +173,12 @@ module Rails
         gem_name, gem_version = gem_for_database
         GemfileEntry.version gem_name, gem_version,
                             "Use #{options[:database]} as the database for Active Record"
+      end
+
+      def webserver_gemfile_entry
+        return [] if options[:skip_puma]
+        comment = 'Use Puma as the app server'
+        GemfileEntry.new('puma', nil, comment)
       end
 
       def include_all_railties?
@@ -306,7 +317,7 @@ module Rails
       end
 
       def javascript_gemfile_entry
-        if options[:skip_javascript]
+        if options[:skip_javascript] || options[:skip_sprockets]
           []
         else
           gems = [coffee_gemfile_entry, javascript_runtime_gemfile_entry]
@@ -315,7 +326,7 @@ module Rails
 
           unless options[:skip_turbolinks]
             gems << GemfileEntry.version("turbolinks", nil,
-             "Turbolinks makes following links in your web application faster. Read more: https://github.com/rails/turbolinks")
+             "Turbolinks makes following links in your web application faster. Read more: https://github.com/turbolinks/turbolinks")
           end
 
           gems
@@ -337,6 +348,14 @@ module Rails
         comment = 'Use Psych as the YAML engine, instead of Syck, so serialized ' \
                   'data can be read safely from different rubies (see http://git.io/uuLVag)'
         GemfileEntry.new('psych', '~> 2.0', comment, platforms: :rbx)
+      end
+
+      def cable_gemfile_entry
+        return [] if options[:skip_action_cable]
+        comment = 'Use Redis adapter to run Action Cable in production'
+        gems = []
+        gems << GemfileEntry.new("redis", '~> 3.0', comment, {}, true)
+        gems
       end
 
       def bundle_command(command)

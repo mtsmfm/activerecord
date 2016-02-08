@@ -9,9 +9,9 @@ module ActiveRecord
         end
 
         def cast(value)
-          if value.is_a?(Array)
-            value.map { |v| cast(v) }
-          elsif value.is_a?(Hash)
+          return if value.nil?
+
+          if value.is_a?(Hash)
             set_time_zone_without_conversion(super)
           elsif value.respond_to?(:in_time_zone)
             begin
@@ -19,23 +19,37 @@ module ActiveRecord
             rescue ArgumentError
               nil
             end
+          else
+            map_avoiding_infinite_recursion(super) { |v| cast(v) }
           end
         end
 
         private
 
         def convert_time_to_time_zone(value)
-          if value.is_a?(Array)
-            value.map { |v| convert_time_to_time_zone(v) }
-          elsif value.acts_like?(:time)
+          return if value.nil?
+
+          if value.acts_like?(:time)
             value.in_time_zone
-          else
+          elsif value.is_a?(::Float)
             value
+          else
+            map_avoiding_infinite_recursion(value) { |v| convert_time_to_time_zone(v) }
           end
         end
 
         def set_time_zone_without_conversion(value)
           ::Time.zone.local_to_utc(value).in_time_zone
+        end
+
+        def map_avoiding_infinite_recursion(value)
+          map(value) do |v|
+            if value.equal?(v)
+              nil
+            else
+              yield(v)
+            end
+          end
         end
       end
 

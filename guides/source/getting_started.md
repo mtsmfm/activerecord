@@ -37,6 +37,7 @@ curve diving straight into Rails. There are several curated lists of online reso
 for learning Ruby:
 
 * [Official Ruby Programming Language website](https://www.ruby-lang.org/en/documentation/)
+* [List of Free Programming Books](https://github.com/vhf/free-programming-books/blob/master/free-programming-books.md#ruby)
 
 Be aware that some resources, while still excellent, cover versions of Ruby as old as
 1.6, and commonly 1.8, and will not include some syntax that you will see in day-to-day
@@ -92,7 +93,7 @@ current version of Ruby installed:
 
 ```bash
 $ ruby -v
-ruby 2.2.2p95
+ruby 2.3.0p0
 ```
 
 TIP: A number of tools exist to help you quickly install Ruby and Ruby
@@ -207,7 +208,7 @@ commented line for new apps and you can uncomment if you need it.
 default to the `Gemfile` in apps generated under JRuby. You can investigate
 all the supported runtimes at [ExecJS](https://github.com/rails/execjs#readme).
 
-This will fire up WEBrick, a web server distributed with Ruby by default. To see
+This will fire up Puma, a web server distributed with Rails by default. To see
 your application in action, open a browser window and navigate to
 <http://localhost:3000>. You should see the Rails default information page:
 
@@ -299,7 +300,7 @@ Rails.application.routes.draw do
 
   # The priority is based upon order of creation:
   # first created -> highest priority.
-  # See how all your routes lay out with "rake routes".
+  # See how all your routes lay out with "bin/rails routes".
   #
   # You can have the root of your site routed with "root"
   # root 'welcome#index'
@@ -358,13 +359,13 @@ Rails.application.routes.draw do
 end
 ```
 
-If you run `bin/rake routes`, you'll see that it has defined routes for all the
+If you run `bin/rails routes`, you'll see that it has defined routes for all the
 standard RESTful actions.  The meaning of the prefix column (and other columns)
 will be seen later, but for now notice that Rails has inferred the
 singular form `article` and makes meaningful use of the distinction.
 
 ```bash
-$ bin/rake routes
+$ bin/rails routes
       Prefix Verb   URI Pattern                  Controller#Action
     articles GET    /articles(.:format)          articles#index
              POST   /articles(.:format)          articles#create
@@ -558,10 +559,10 @@ this:
 
 In this example, the `articles_path` helper is passed to the `:url` option.
 To see what Rails will do with this, we look back at the output of
-`bin/rake routes`:
+`bin/rails routes`:
 
 ```bash
-$ bin/rake routes
+$ bin/rails routes
       Prefix Verb   URI Pattern                  Controller#Action
     articles GET    /articles(.:format)          articles#index
              POST   /articles(.:format)          articles#create
@@ -701,10 +702,10 @@ two timestamp fields to allow Rails to track article creation and update times.
 TIP: For more information about migrations, refer to [Rails Database Migrations]
 (migrations.html).
 
-At this point, you can use a rake command to run the migration:
+At this point, you can use a bin/rails command to run the migration:
 
 ```bash
-$ bin/rake db:migrate
+$ bin/rails db:migrate
 ```
 
 Rails will execute this migration command and tell you it created the Articles
@@ -721,7 +722,7 @@ NOTE. Because you're working in the development environment by default, this
 command will apply to the database defined in the `development` section of your
 `config/database.yml` file. If you would like to execute migrations in another
 environment, for instance in production, you must explicitly pass it when
-invoking the command: `bin/rake db:migrate RAILS_ENV=production`.
+invoking the command: `bin/rails db:migrate RAILS_ENV=production`.
 
 ### Saving data in the controller
 
@@ -766,7 +767,7 @@ Why do you have to bother? The ability to grab and automatically assign all
 controller parameters to your model in one shot makes the programmer's job
 easier, but this convenience also allows malicious use. What if a request to
 the server was crafted to look like a new article form submit but also included
-extra fields with values that violated your applications integrity? They would
+extra fields with values that violated your application's integrity? They would
 be 'mass assigned' into your model and then into the database along with the
 good stuff - potentially breaking your application or worse.
 
@@ -808,7 +809,7 @@ If you submit the form again now, Rails will complain about not finding the
 `show` action. That's not very useful though, so let's add the `show` action
 before proceeding.
 
-As we have seen in the output of `bin/rake routes`, the route for `show` action is
+As we have seen in the output of `bin/rails routes`, the route for `show` action is
 as follows:
 
 ```
@@ -870,7 +871,7 @@ Visit <http://localhost:3000/articles/new> and give it a try!
 ### Listing all articles
 
 We still need a way to list all our articles, so let's do that.
-The route for this as per output of `bin/rake routes` is:
+The route for this as per output of `bin/rails routes` is:
 
 ```
 articles GET    /articles(.:format)          articles#index
@@ -1365,7 +1366,7 @@ Then do the same for the `app/views/articles/edit.html.erb` view:
 
 We're now ready to cover the "D" part of CRUD, deleting articles from the
 database. Following the REST convention, the route for
-deleting articles as per output of `bin/rake routes` is:
+deleting articles as per output of `bin/rails routes` is:
 
 ```ruby
 DELETE /articles/:id(.:format)      articles#destroy
@@ -1539,6 +1540,11 @@ This is very similar to the `Article` model that you saw earlier. The difference
 is the line `belongs_to :article`, which sets up an Active Record _association_.
 You'll learn a little about associations in the next section of this guide.
 
+The (`:references`) keyword used in the bash command is a special data type for models.
+It creates a new column on your database table with the provided model name appended with an `_id`
+that can hold integer values. You can get a better understanding after analyzing the
+`db/schema.rb` file below.
+
 In addition to the model, Rails has also made a migration to create the
 corresponding database table:
 
@@ -1561,7 +1567,7 @@ for it, and a foreign key constraint that points to the `id` column of the `arti
 table. Go ahead and run the migration:
 
 ```bash
-$ bin/rake db:migrate
+$ bin/rails db:migrate
 ```
 
 Rails is smart enough to only execute the migrations that have not already been

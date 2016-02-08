@@ -104,6 +104,7 @@ ActiveRecord::Schema.define do
     t.column :author_visibility, :integer, default: 0
     t.column :illustrator_visibility, :integer, default: 0
     t.column :font_size, :integer, default: 0
+    t.column :cover, :string, default: 'hard'
   end
 
   create_table :booleans, force: true do |t|
@@ -201,11 +202,10 @@ ActiveRecord::Schema.define do
     t.integer :rating, default: 1
     t.integer :account_id
     t.string :description, default: ""
+    t.index [:firm_id, :type, :rating], name: "company_index"
+    t.index [:firm_id, :type], name: "company_partial_index", where: "rating > 10"
+    t.index :name, name: 'company_name_index', using: :btree
   end
-
-  add_index :companies, [:firm_id, :type, :rating], name: "company_index"
-  add_index :companies, [:firm_id, :type], name: "company_partial_index", where: "rating > 10"
-  add_index :companies, :name, name: 'company_name_index', using: :btree
 
   create_table :content, force: true do |t|
     t.string :title
@@ -303,8 +303,8 @@ ActiveRecord::Schema.define do
   create_table :edges, force: true, id: false do |t|
     t.column :source_id, :integer, null: false
     t.column :sink_id,   :integer, null: false
+    t.index [:source_id, :sink_id], unique: true, name: 'unique_edge_index'
   end
-  add_index :edges, [:source_id, :sink_id], unique: true, name: 'unique_edge_index'
 
   create_table :engines, force: true do |t|
     t.integer :car_id
@@ -781,8 +781,8 @@ ActiveRecord::Schema.define do
     t.string :nick, null: false
     t.string :name
     t.column :books_count, :integer, null: false, default: 0
+    t.index :nick, unique: true
   end
-  add_index :subscribers, :nick, unique: true
 
   create_table :subscriptions, force: true do |t|
     t.string :subscriber_id
@@ -975,6 +975,8 @@ ActiveRecord::Schema.define do
     t.integer :employable_id
     t.string :employable_type
     t.integer :department_id
+    t.string :employable_list_type
+    t.integer :employable_list_id
   end
   create_table :recipes, force: true do |t|
     t.integer :chef_id

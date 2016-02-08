@@ -8,7 +8,7 @@ require 'models/project'
 require 'models/rating'
 
 class RelationMergingTest < ActiveRecord::TestCase
-  fixtures :developers, :comments, :authors, :posts
+  fixtures :developers, :comments, :authors, :author_addresses, :posts
 
   def test_relation_merging
     devs = Developer.where("salary >= 80000").merge(Developer.limit(2)).merge(Developer.order('id ASC').where("id < 3"))
@@ -104,10 +104,17 @@ class RelationMergingTest < ActiveRecord::TestCase
     post = PostThatLoadsCommentsInAnAfterSaveHook.create!(title: "First Post", body: "Blah blah blah.")
     assert_equal "First comment!", post.comments.where(body: "First comment!").first_or_create.body
   end
+
+  def test_merging_with_from_clause
+    relation = Post.all
+    assert relation.from_clause.empty?
+    relation = relation.merge(Post.from("posts"))
+    refute relation.from_clause.empty?
+  end
 end
 
 class MergingDifferentRelationsTest < ActiveRecord::TestCase
-  fixtures :posts, :authors, :developers
+  fixtures :posts, :authors, :author_addresses, :developers
 
   test "merging where relations" do
     hello_by_bob = Post.where(body: "hello").joins(:author).

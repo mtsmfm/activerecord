@@ -42,7 +42,7 @@ module ActiveRecord
       end
 
       def supports_json?
-        version >= '5.7.8'
+        !mariadb? && version >= '5.7.8'
       end
 
       # HELPER METHODS ===========================================
@@ -135,12 +135,6 @@ module ActiveRecord
       end
 
       alias exec_without_stmt exec_query
-
-      def insert_sql(sql, name = nil, pk = nil, id_value = nil, sequence_name = nil)
-        super
-        id_value || @connection.last_id
-      end
-      alias :create :insert_sql
 
       def exec_insert(sql, name, binds, pk = nil, sequence_name = nil)
         execute to_sql(sql, binds), name

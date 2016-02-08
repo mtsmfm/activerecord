@@ -7,7 +7,7 @@ require 'models/computer'
 require 'models/company'
 
 class AssociationCallbacksTest < ActiveRecord::TestCase
-  fixtures :posts, :authors, :projects, :developers
+  fixtures :posts, :authors, :author_addresses, :projects, :developers
 
   def setup
     @david = authors(:david)
@@ -177,14 +177,14 @@ class AssociationCallbacksTest < ActiveRecord::TestCase
   end
 
   def test_dont_add_if_before_callback_raises_exception
-    assert !@david.unchangable_posts.include?(@authorless)
+    assert !@david.unchangeable_posts.include?(@authorless)
     begin
-      @david.unchangable_posts << @authorless
+      @david.unchangeable_posts << @authorless
     rescue Exception
     end
     assert @david.post_log.empty?
-    assert !@david.unchangable_posts.include?(@authorless)
+    assert !@david.unchangeable_posts.include?(@authorless)
     @david.reload
-    assert !@david.unchangable_posts.include?(@authorless)
+    assert !@david.unchangeable_posts.include?(@authorless)
   end
 end

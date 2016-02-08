@@ -1,7 +1,10 @@
 require 'active_record/connection_adapters/abstract_adapter'
+require 'active_record/connection_adapters/mysql/column'
+require 'active_record/connection_adapters/mysql/explain_pretty_printer'
 require 'active_record/connection_adapters/mysql/schema_creation'
 require 'active_record/connection_adapters/mysql/schema_definitions'
 require 'active_record/connection_adapters/mysql/schema_dumper'
+require 'active_record/connection_adapters/mysql/type_metadata'
 
 require 'active_support/core_ext/string/strip'
 
@@ -19,78 +22,6 @@ module ActiveRecord
         MySQL::SchemaCreation.new(self)
       end
 
-      class Column < ConnectionAdapters::Column # :nodoc:
-        delegate :strict, :extra, to: :sql_type_metadata, allow_nil: true
-
-        def initialize(*)
-          super
-          assert_valid_default(default)
-          extract_default
-        end
-
-        def extract_default
-          if blob_or_text_column?
-            @default = null || strict ? nil : ''
-          end
-        end
-
-        def has_default?
-          return false if blob_or_text_column? # MySQL forbids defaults on blob and text columns
-          super
-        end
-
-        def blob_or_text_column?
-          sql_type =~ /blob/i || type == :text
-        end
-
-        def unsigned?
-          /unsigned/ === sql_type
-        end
-
-        def case_sensitive?
-          collation && !collation.match(/_ci$/)
-        end
-
-        def auto_increment?
-          extra == 'auto_increment'
-        end
-
-        private
-
-        def assert_valid_default(default)
-          if blob_or_text_column? && default.present?
-            raise ArgumentError, "#{type} columns cannot have a default value: #{default.inspect}"
-          end
-        end
-      end
-
-      class MysqlTypeMetadata < DelegateClass(SqlTypeMetadata) # :nodoc:
-        attr_reader :extra, :strict
-
-        def initialize(type_metadata, extra: "", strict: false)
-          super(type_metadata)
-          @type_metadata = type_metadata
-          @extra = extra
-          @strict = strict
-        end
-
-        def ==(other)
-          other.is_a?(MysqlTypeMetadata) &&
-            attributes_for_hash == other.attributes_for_hash
-        end
-        alias eql? ==
-
-        def hash
-          attributes_for_hash.hash
-        end
-
-        protected
-
-        def attributes_for_hash
-          [self.class, @type_metadata, extra, strict]
-        end
-      end
-
       ##
       # :singleton-method:
       # By default, the Mysql2Adapter will consider all columns of type <tt>tinyint(1)</tt>
@@ -100,12 +31,6 @@ module ActiveRecord
       #   ActiveRecord::ConnectionAdapters::Mysql2Adapter.emulate_booleans = false
       class_attribute :emulate_booleans
       self.emulate_booleans = true
-
-      LOST_CONNECTION_ERROR_MESSAGES = [
-        "Server shutdown in progress",
-        "Broken pipe",
-        "Lost connection to MySQL server during query",
-        "MySQL server has gone away" ]
 
       QUOTED_TRUE, QUOTED_FALSE = '1', '0'
 
@@ -127,7 +52,6 @@ module ActiveRecord
       INDEX_TYPES  = [:fulltext, :spatial]
       INDEX_USINGS = [:btree, :hash]
 
-      # FIXME: Make the first parameter more similar for the two adapters
       def initialize(connection, logger, connection_options, config)
         super(connection, logger, config)
         @quoted_column_names, @quoted_table_names = {}, {}
@@ -140,16 +64,18 @@ module ActiveRecord
         else
           @prepared_statements = false
         end
+
+        if version < '5.0.0'
+          raise "Your version of MySQL (#{full_version.match(/^\d+\.\d+\.\d+/)[0]}) is too old. Active Record supports MySQL >= 5.0."
+        end
       end
 
-      MAX_INDEX_LENGTH_FOR_CHARSETS_OF_4BYTES_MAXLEN = 191
       CHARSETS_OF_4BYTES_MAXLEN = ['utf8mb4', 'utf16', 'utf16le', 'utf32']
-      def initialize_schema_migrations_table
-        if CHARSETS_OF_4BYTES_MAXLEN.include?(charset)
-          ActiveRecord::SchemaMigration.create_table(MAX_INDEX_LENGTH_FOR_CHARSETS_OF_4BYTES_MAXLEN)
-        else
-          ActiveRecord::SchemaMigration.create_table
-        end
+
+      def internal_string_options_for_primary_key # :nodoc:
+        super.tap { |options|
+          options[:collation] = collation.sub(/\A[^_]+/, 'utf8') if CHARSETS_OF_4BYTES_MAXLEN.include?(charset)
+        }
       end
 
       def version
@@ -175,12 +101,8 @@ module ActiveRecord
         true
       end
 
-      # MySQL 4 technically support transaction isolation, but it is affected by a bug
-      # where the transaction level gets persisted for the whole session:
-      #
-      # http://bugs.mysql.com/bug.php?id=39170
       def supports_transaction_isolation?
-        version >= '5.0.0'
+        true
       end
 
       def supports_explain?
@@ -196,17 +118,15 @@ module ActiveRecord
       end
 
       def supports_views?
-        version >= '5.0.0'
+        true
       end
 
       def supports_datetime_with_precision?
         version >= '5.6.4'
       end
 
-      # 5.0.0 definitely supports it, possibly supported by earlier versions but
-      # not sure
       def supports_advisory_locks?
-        version >= '5.0.0'
+        true
       end
 
       def get_advisory_lock(lock_name, timeout = 0) # :nodoc:
@@ -234,7 +154,7 @@ module ActiveRecord
       end
 
       def new_column(field, default, sql_type_metadata = nil, null = true, default_function = nil, collation = nil) # :nodoc:
-        Column.new(field, default, sql_type_metadata, null, default_function, collation)
+        MySQL::Column.new(field, default, sql_type_metadata, null, default_function, collation)
       end
 
       # Must return the MySQL error number from the exception, if the exception has an
@@ -308,72 +228,7 @@ module ActiveRecord
         result  = exec_query(sql, 'EXPLAIN', binds)
         elapsed = Time.now - start
 
-        ExplainPrettyPrinter.new.pp(result, elapsed)
-      end
-
-      class ExplainPrettyPrinter # :nodoc:
-        # Pretty prints the result of an EXPLAIN in a way that resembles the output of the
-        # MySQL shell:
-        #
-        #   +----+-------------+-------+-------+---------------+---------+---------+-------+------+-------------+
-        #   | id | select_type | table | type  | possible_keys | key     | key_len | ref   | rows | Extra       |
-        #   +----+-------------+-------+-------+---------------+---------+---------+-------+------+-------------+
-        #   |  1 | SIMPLE      | users | const | PRIMARY       | PRIMARY | 4       | const |    1 |             |
-        #   |  1 | SIMPLE      | posts | ALL   | NULL          | NULL    | NULL    | NULL  |    1 | Using where |
-        #   +----+-------------+-------+-------+---------------+---------+---------+-------+------+-------------+
-        #   2 rows in set (0.00 sec)
-        #
-        # This is an exercise in Ruby hyperrealism :).
-        def pp(result, elapsed)
-          widths    = compute_column_widths(result)
-          separator = build_separator(widths)
-
-          pp = []
-
-          pp << separator
-          pp << build_cells(result.columns, widths)
-          pp << separator
-
-          result.rows.each do |row|
-            pp << build_cells(row, widths)
-          end
-
-          pp << separator
-          pp << build_footer(result.rows.length, elapsed)
-
-          pp.join("\n") + "\n"
-        end
-
-        private
-
-        def compute_column_widths(result)
-          [].tap do |widths|
-            result.columns.each_with_index do |column, i|
-              cells_in_column = [column] + result.rows.map {|r| r[i].nil? ? 'NULL' : r[i].to_s}
-              widths << cells_in_column.map(&:length).max
-            end
-          end
-        end
-
-        def build_separator(widths)
-          padding = 1
-          '+' + widths.map {|w| '-' * (w + (padding*2))}.join('+') + '+'
-        end
-
-        def build_cells(items, widths)
-          cells = []
-          items.each_with_index do |item, i|
-            item = 'NULL' if item.nil?
-            justifier = item.is_a?(Numeric) ? 'rjust' : 'ljust'
-            cells << item.to_s.send(justifier, widths[i])
-          end
-          '| ' + cells.join(' | ') + ' |'
-        end
-
-        def build_footer(nrows, elapsed)
-          rows_label = nrows == 1 ? 'row' : 'rows'
-          "#{nrows} #{rows_label} in set (%.2f sec)" % elapsed
-        end
+        MySQL::ExplainPrettyPrinter.new.pp(result, elapsed)
       end
 
       def clear_cache!
@@ -391,11 +246,6 @@ module ActiveRecord
       # needs to be explicitly freed or not.
       def execute_and_free(sql, name = nil) # :nodoc:
         yield execute(sql, name)
-      end
-
-      def update_sql(sql, name = nil) #:nodoc:
-        super
-        @connection.affected_rows
       end
 
       def begin_db_transaction
@@ -507,6 +357,7 @@ module ActiveRecord
       end
 
       def table_exists?(table_name)
+        # Update lib/active_record/internal_metadata.rb when this gets removed
         ActiveSupport::Deprecation.warn(<<-MSG.squish)
           #table_exists? currently checks both tables and views.
           This behavior is deprecated and will be changed with Rails 5.1 to only check tables.
@@ -569,12 +420,16 @@ module ActiveRecord
       end
 
       # Returns an array of +Column+ objects for the table specified by +table_name+.
-      def columns(table_name)#:nodoc:
+      def columns(table_name) # :nodoc:
         sql = "SHOW FULL FIELDS FROM #{quote_table_name(table_name)}"
         execute_and_free(sql, 'SCHEMA') do |result|
           each_hash(result).map do |field|
             type_metadata = fetch_type_metadata(field[:Type], field[:Extra])
-            new_column(field[:Field], field[:Default], type_metadata, field[:Null] == "YES", nil, field[:Collation])
+            if type_metadata.type == :datetime && field[:Default] == "CURRENT_TIMESTAMP"
+              new_column(field[:Field], nil, type_metadata, field[:Null] == "YES", field[:Default], field[:Collation])
+            else
+              new_column(field[:Field], field[:Default], type_metadata, field[:Null] == "YES", nil, field[:Collation])
+            end
           end
         end
       end
@@ -752,16 +607,11 @@ module ActiveRecord
         SQL
       end
 
-      def case_sensitive_modifier(node, table_attribute)
-        node = Arel::Nodes.build_quoted node, table_attribute
-        Arel::Nodes::Bin.new(node)
-      end
-
       def case_sensitive_comparison(table, attribute, column, value)
-        if column.case_sensitive?
-          table[attribute].eq(value)
-        else
+        if value.nil? || column.case_sensitive?
           super
+        else
+          table[attribute].eq(Arel::Nodes::Bin.new(Arel::Nodes::BindParam.new))
         end
       end
 
@@ -769,7 +619,7 @@ module ActiveRecord
         if column.case_sensitive?
           super
         else
-          table[attribute].eq(value)
+          table[attribute].eq(Arel::Nodes::BindParam.new)
         end
       end
 
@@ -840,7 +690,7 @@ module ActiveRecord
 
       def register_integer_type(mapping, key, options) # :nodoc:
         mapping.register_type(key) do |sql_type|
-          if /unsigned/i =~ sql_type
+          if /\bunsigned\z/ === sql_type
             Type::UnsignedInteger.new(options)
           else
             Type::Integer.new(options)
@@ -857,7 +707,7 @@ module ActiveRecord
       end
 
       def fetch_type_metadata(sql_type, extra = "")
-        MysqlTypeMetadata.new(super(sql_type), extra: extra, strict: strict_mode?)
+        MySQL::TypeMetadata.new(super(sql_type), extra: extra, strict: strict_mode?)
       end
 
       def add_index_length(option_strings, column_names, options = {})
@@ -1055,7 +905,6 @@ module ActiveRecord
         when 3; 'mediumint'
         when nil, 4; 'int'
         when 5..8; 'bigint'
-        when 11; 'int(11)' # backward compatibility with Rails 2.0
         else raise(ActiveRecordError, "No integer type has byte size #{limit}")
         end
       end

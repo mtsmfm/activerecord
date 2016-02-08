@@ -14,7 +14,7 @@ module ActiveRecord
 
       def column_spec_for_primary_key(column)
         return if column.type == :integer
-        spec = { id: column.type.inspect }
+        spec = { id: schema_type(column).inspect }
         spec.merge!(prepare_column_options(column).delete_if { |key, _| [:name, :type].include?(key) })
       end
 
@@ -24,7 +24,7 @@ module ActiveRecord
       def prepare_column_options(column)
         spec = {}
         spec[:name]      = column.name.inspect
-        spec[:type]      = schema_type(column)
+        spec[:type]      = schema_type(column).to_s
         spec[:null]      = 'false' unless column.null
 
         if limit = schema_limit(column)
@@ -57,7 +57,7 @@ module ActiveRecord
       private
 
       def schema_type(column)
-        column.type.to_s
+        column.type
       end
 
       def schema_limit(column)
@@ -76,9 +76,15 @@ module ActiveRecord
       def schema_default(column)
         type = lookup_cast_type_from_column(column)
         default = type.deserialize(column.default)
-        unless default.nil?
+        if default.nil?
+          schema_expression(column)
+        else
           type.type_cast_for_schema(default)
         end
+      end
+
+      def schema_expression(column)
+        "-> { #{column.default_function.inspect} }" if column.default_function
       end
 
       def schema_collation(column)

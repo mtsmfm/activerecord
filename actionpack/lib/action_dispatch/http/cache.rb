@@ -80,9 +80,17 @@ module ActionDispatch
           set_header DATE, utc_time.httpdate
         end
 
+        # This method allows you to set the ETag for cached content, which
+        # will be returned to the end user.
+        #
+        # By default, Action Dispatch sets all ETags to be weak.
+        # This ensures that if the content changes only semantically,
+        # the whole page doesn't have to be regenerated from scratch
+        # by the web server. With strong ETags, pages are compared
+        # byte by byte, and are regenerated only if they are not exactly equal.
         def etag=(etag)
           key = ActiveSupport::Cache.expand_cache_key(etag)
-          super %("#{Digest::MD5.hexdigest(key)}")
+          super %(W/"#{Digest::MD5.hexdigest(key)}")
         end
 
         def etag?; etag; end
@@ -91,7 +99,7 @@ module ActionDispatch
 
         DATE          = 'Date'.freeze
         LAST_MODIFIED = "Last-Modified".freeze
-        SPECIAL_KEYS  = Set.new(%w[extras no-cache max-age public must-revalidate])
+        SPECIAL_KEYS  = Set.new(%w[extras no-cache max-age public private must-revalidate])
 
         def cache_control_segments
           if cache_control = _cache_control

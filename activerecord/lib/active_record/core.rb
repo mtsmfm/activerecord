@@ -256,6 +256,11 @@ module ActiveRecord
           end
       end
 
+      def arel_attribute(name, table = arel_table) # :nodoc:
+        name = attribute_alias(name) if attribute_alias?(name)
+        table[name]
+      end
+
       def predicate_builder # :nodoc:
         @predicate_builder ||= PredicateBuilder.new(table_metadata)
       end
@@ -275,7 +280,7 @@ module ActiveRecord
       def relation # :nodoc:
         relation = Relation.create(self, arel_table, predicate_builder)
 
-        if finder_needs_type_condition?
+        if finder_needs_type_condition? && !ignore_default_scope?
           relation.where(type_condition).create_with(inheritance_column.to_sym => sti_name)
         else
           relation

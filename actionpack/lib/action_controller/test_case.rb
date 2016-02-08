@@ -8,6 +8,20 @@ require 'rails-dom-testing'
 
 module ActionController
   # :stopdoc:
+  class Metal
+    include Testing::Functional
+  end
+
+  module Live
+    # Disable controller / rendering threads in tests.  User tests can access
+    # the database on the main thread, so they could open a txn, then the
+    # controller thread will open a new connection and try to access data
+    # that's only visible to the main thread's txn.  This is the problem in #23483
+    def new_controller_thread # :nodoc:
+      yield
+    end
+  end
+
   # ActionController::TestCase will be deprecated and moved to a gem in Rails 5.1.
   # Please use ActionDispatch::IntegrationTest going forward.
   class TestRequest < ActionDispatch::TestRequest #:nodoc:
@@ -455,16 +469,16 @@ module ActionController
             parameters = nil
           end
 
-          if parameters.present? || session.present? || flash.present?
+          if parameters || session || flash
             non_kwarg_request_warning
           end
         end
 
-        if body.present?
+        if body
           @request.set_header 'RAW_POST_DATA', body
         end
 
-        if http_method.present?
+        if http_method
           http_method = http_method.to_s.upcase
         else
           http_method = "GET"
@@ -472,15 +486,11 @@ module ActionController
 
         parameters ||= {}
 
-        if format.present?
+        if format
           parameters[:format] = format
         end
 
         @html_document = nil
-
-        unless @controller.respond_to?(:recycle!)
-          @controller.extend(Testing::Functional)
-        end
 
         self.cookies.update @request.cookies
         self.cookies.update_cookies_from_jar

@@ -54,16 +54,17 @@ module ActiveRecord
       end
     end
 
+    FROZEN_EMPTY_ARRAY = [].freeze
     Relation::MULTI_VALUE_METHODS.each do |name|
       class_eval <<-CODE, __FILE__, __LINE__ + 1
-        def #{name}_values                    # def select_values
-          @values[:#{name}] || []             #   @values[:select] || []
-        end                                   # end
-                                              #
-        def #{name}_values=(values)           # def select_values=(values)
-          assert_mutability!                  #   assert_mutability!
-          @values[:#{name}] = values          #   @values[:select] = values
-        end                                   # end
+        def #{name}_values
+          @values[:#{name}] || FROZEN_EMPTY_ARRAY
+        end
+
+        def #{name}_values=(values)
+          assert_mutability!
+          @values[:#{name}] = values
+        end
       CODE
     end
 
@@ -116,8 +117,9 @@ module ActiveRecord
       result
     end
 
+    FROZEN_EMPTY_HASH = {}.freeze
     def create_with_value # :nodoc:
-      @values[:create_with] || {}
+      @values[:create_with] || FROZEN_EMPTY_HASH
     end
 
     alias extensions extending_values
@@ -657,8 +659,10 @@ module ActiveRecord
     end
 
     def or!(other) # :nodoc:
-      unless structurally_compatible_for_or?(other)
-        raise ArgumentError, 'Relation passed to #or must be structurally compatible'
+      incompatible_values = structurally_incompatible_values_for_or(other)
+
+      unless incompatible_values.empty?
+        raise ArgumentError, "Relation passed to #or must be structurally compatible. Incompatible values: #{incompatible_values}"
       end
 
       self.where_clause = self.where_clause.or(other.where_clause)
@@ -1089,8 +1093,8 @@ module ActiveRecord
 
     def arel_columns(columns)
       columns.map do |field|
-        if (Symbol === field || String === field) && columns_hash.key?(field.to_s) && !from_clause.value
-          arel_table[field]
+        if (Symbol === field || String === field) && (klass.has_attribute?(field) || klass.attribute_alias?(field)) && !from_clause.value
+          arel_attribute(field)
         elsif Symbol === field
           connection.quote_table_name(field.to_s)
         else
@@ -1100,14 +1104,21 @@ module ActiveRecord
     end
 
     def reverse_sql_order(order_query)
-      order_query = ["#{quoted_table_name}.#{quoted_primary_key} ASC"] if order_query.empty?
+      if order_query.empty?
+        return [arel_attribute(primary_key).desc] if primary_key
+        raise IrreversibleOrderError,
+          "Relation has no current order and table has no primary key to be used as default order"
+      end
 
       order_query.flat_map do |o|
         case o
         when Arel::Nodes::Ordering
           o.reverse
         when String
-          o.to_s.split(',').map! do |s|
+          if does_not_support_reverse?(o)
+            raise IrreversibleOrderError, "Order #{o.inspect} can not be reversed automatically"
+          end
+          o.split(',').map! do |s|
             s.strip!
             s.gsub!(/\sasc\Z/i, ' DESC') || s.gsub!(/\sdesc\Z/i, ' ASC') || s.concat(' DESC')
           end
@@ -1115,6 +1126,13 @@ module ActiveRecord
           o
         end
       end
+    end
+
+    def does_not_support_reverse?(order)
+      #uses sql function with multiple arguments
+      order =~ /\([^()]*,[^()]*\)/ ||
+        # uses "nulls first" like construction
+        order =~ /nulls (first|last)\Z/i
     end
 
     def build_order(arel)
@@ -1152,12 +1170,10 @@ module ActiveRecord
       order_args.map! do |arg|
         case arg
         when Symbol
-          arg = klass.attribute_alias(arg) if klass.attribute_alias?(arg)
-          table[arg].asc
+          arel_attribute(arg).asc
         when Hash
           arg.map { |field, dir|
-            field = klass.attribute_alias(field) if klass.attribute_alias?(field)
-            table[field].send(dir.downcase)
+            arel_attribute(field).send(dir.downcase)
           }
         else
           arg
@@ -1187,10 +1203,10 @@ module ActiveRecord
       end
     end
 
-    def structurally_compatible_for_or?(other)
-      Relation::SINGLE_VALUE_METHODS.all? { |m| send("#{m}_value") == other.send("#{m}_value") } &&
-        (Relation::MULTI_VALUE_METHODS - [:extending]).all? { |m| send("#{m}_values") == other.send("#{m}_values") } &&
-        (Relation::CLAUSE_METHODS - [:having, :where]).all? { |m| send("#{m}_clause") != other.send("#{m}_clause") }
+    def structurally_incompatible_values_for_or(other)
+      Relation::SINGLE_VALUE_METHODS.reject { |m| send("#{m}_value") == other.send("#{m}_value") } +
+        (Relation::MULTI_VALUE_METHODS - [:extending]).reject { |m| send("#{m}_values") == other.send("#{m}_values") } +
+        (Relation::CLAUSE_METHODS - [:having, :where]).reject { |m| send("#{m}_clause") == other.send("#{m}_clause") }
     end
 
     def new_where_clause

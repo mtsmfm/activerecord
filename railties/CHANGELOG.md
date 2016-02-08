@@ -1,6 +1,32 @@
+*   Add dummy files for apple-touch-icon.png and apple-touch-icon.png. GH#23427
+
+    *Alexey Zabelin*
+
+## Rails 5.0.0.beta2 (February 01, 2016) ##
+
+*   Add `after_bundle` callbacks in Rails plugin templates.  Useful for allowing
+    templates to perform actions that are dependent upon `bundle install`.
+
+    *Ryan Manuel*
+
+*   Bring back `TEST=` env for `rake test` task.
+
+    *Yves Senn*
+
+*   Specify log file names or all logs to clear `rake log:clear`
+
+    Specify which logs to clear when using the `rake log:clear` task, e.g. `rake log:clear LOGS=test,staging`
+
+    Clear all logs from log/*.log e.g. `rake log:clear LOGS=all`
+
+    By default `rake log:clear` clears standard environment log files i.e. 'development,test,production'
+
+    *Pramod Shinde*
+
 *   Fix using `add_source` with a block after using `gem` in a custom generator.
 
     *Will Fisher*
+
 
 ## Rails 5.0.0.beta1 (December 18, 2015) ##
 

@@ -10,7 +10,7 @@ require 'models/person'
 require 'models/reference'
 
 class RelationScopingTest < ActiveRecord::TestCase
-  fixtures :authors, :developers, :projects, :comments, :posts, :developers_projects
+  fixtures :authors, :author_addresses, :developers, :projects, :comments, :posts, :developers_projects
 
   setup do
     developers(:david)
@@ -209,15 +209,29 @@ class RelationScopingTest < ActiveRecord::TestCase
     assert_not_equal [], Developer.all
   end
 
-  def test_current_scope_does_not_pollute_other_subclasses
-    Post.none.scoping do
-      assert StiPost.all.any?
+  def test_current_scope_does_not_pollute_sibling_subclasses
+    Comment.none.scoping do
+      assert_not SpecialComment.all.any?
+      assert_not VerySpecialComment.all.any?
+      assert_not SubSpecialComment.all.any?
+    end
+
+    SpecialComment.none.scoping do
+      assert Comment.all.any?
+      assert VerySpecialComment.all.any?
+      assert_not SubSpecialComment.all.any?
+    end
+
+    SubSpecialComment.none.scoping do
+      assert Comment.all.any?
+      assert VerySpecialComment.all.any?
+      assert SpecialComment.all.any?
     end
   end
 end
 
 class NestedRelationScopingTest < ActiveRecord::TestCase
-  fixtures :authors, :developers, :projects, :comments, :posts
+  fixtures :authors, :author_addresses, :developers, :projects, :comments, :posts
 
   def test_merge_options
     Developer.where('salary = 80000').scoping do

@@ -223,6 +223,10 @@ class FixturesTest < ActiveRecord::TestCase
     assert_equal(%(table "parrots" has no column named "arrr".), e.message)
   end
 
+  def test_yaml_file_with_symbol_columns
+    ActiveRecord::FixtureSet.create_fixtures(FIXTURES_ROOT + "/naked/yml", "trees")
+  end
+
   def test_omap_fixtures
     assert_nothing_raised do
       fixtures = ActiveRecord::FixtureSet.new(Account.connection, 'categories', Category, FIXTURES_ROOT + "/categories_ordered")
@@ -707,7 +711,7 @@ end
 
 class FasterFixturesTest < ActiveRecord::TestCase
   self.use_transactional_tests = false
-  fixtures :categories, :authors
+  fixtures :categories, :authors, :author_addresses
 
   def load_extra_fixture(name)
     fixture = create_fixtures(name).first

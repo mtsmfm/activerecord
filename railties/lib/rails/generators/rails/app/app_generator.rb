@@ -78,11 +78,12 @@ module Rails
         template "application.rb"
         template "environment.rb"
         template "secrets.yml"
+        template "cable.yml" unless options[:skip_action_cable]
+        template "puma.rb"   unless options[:skip_puma]
 
         directory "environments"
         directory "initializers"
         directory "locales"
-        directory "redis" unless options[:skip_action_cable]
       end
     end
 
@@ -315,7 +316,7 @@ module Rails
 
       def delete_action_cable_files_skipping_action_cable
         if options[:skip_action_cable]
-          remove_file 'config/redis/cable.yml'
+          remove_file 'config/cable.yml'
           remove_file 'app/assets/javascripts/cable.coffee'
           remove_dir 'app/channels'
         end
@@ -326,6 +327,7 @@ module Rails
           remove_file 'config/initializers/session_store.rb'
           remove_file 'config/initializers/cookies_serializer.rb'
           remove_file 'config/initializers/request_forgery_protection.rb'
+          remove_file 'config/initializers/per_form_csrf_tokens.rb'
         end
       end
 

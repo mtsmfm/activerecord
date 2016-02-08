@@ -71,7 +71,7 @@ module RenderTestCases
     e = assert_raise ActionView::Template::Error do
       @view.render(:template => "with_format", :formats => [:json])
     end
-    assert_includes(e.message, "Missing partial /_missing with {:locale=>[:en], :formats=>[:json], :variants=>[], :handlers=>[:raw, :erb, :builder, :ruby]}.")
+    assert_includes(e.message, "Missing partial /_missing with {:locale=>[:en], :formats=>[:json], :variants=>[], :handlers=>[:raw, :erb, :html, :builder, :ruby]}.")
   end
 
   def test_render_file_with_locale
@@ -146,6 +146,13 @@ module RenderTestCases
 
   def test_render_partial_from_default
     assert_equal "only partial", @view.render("test/partial_only")
+  end
+
+  def test_render_outside_path
+    assert File.exist?(File.join(File.dirname(__FILE__), '../../test/abstract_unit.rb'))
+    assert_raises ActionView::MissingTemplate do
+      @view.render(:template => "../\\../test/abstract_unit.rb")
+    end
   end
 
   def test_render_partial
@@ -465,6 +472,11 @@ module RenderTestCases
   def test_render_with_layout_which_renders_another_partial
     assert_equal %(partial html\nHello world!\n),
       @view.render(:file => "test/hello_world", :layout => "layouts/yield_with_render_partial_inside")
+  end
+
+  def test_render_partial_with_html_only_extension
+    assert_equal %(<h1>partial html</h1>\nHello world!\n),
+      @view.render(:file => "test/hello_world", :layout => "layouts/render_partial_html")
   end
 
   def test_render_layout_with_block_and_yield

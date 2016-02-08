@@ -130,11 +130,6 @@ module ActiveRecord
         assert_equal 'UTF-8', @conn.encoding
       end
 
-      def test_bind_value_substitute
-        bind_param = @conn.substitute_at('foo')
-        assert_equal Arel.sql('?'), bind_param.to_sql
-      end
-
       def test_exec_no_binds
         with_example_table 'id int, data string' do
           result = @conn.exec_query('SELECT id, data FROM ex')
@@ -401,12 +396,6 @@ module ActiveRecord
 
       def test_no_primary_key
         with_example_table 'number integer not null' do
-          assert_nil @conn.primary_key('ex')
-        end
-      end
-
-      def test_composite_primary_key
-        with_example_table 'id integer, number integer, foo integer, PRIMARY KEY (id, number)' do
           assert_nil @conn.primary_key('ex')
         end
       end

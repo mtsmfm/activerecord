@@ -702,6 +702,12 @@ class HashExtTest < ActiveSupport::TestCase
     assert_equal h.class, h.dup.class
   end
 
+  def test_nested_dig_indifferent_access
+    skip if RUBY_VERSION < "2.3.0"
+    data = {"this" => {"views" => 1234}}.with_indifferent_access
+    assert_equal 1234, data.dig(:this, :views)
+  end
+
   def test_assert_valid_keys
     assert_nothing_raised do
       { :failure => "stuff", :funny => "business" }.assert_valid_keys([ :failure, :funny ])
@@ -1587,9 +1593,9 @@ class HashToXmlTest < ActiveSupport::TestCase
     assert_equal 3, hash_wia[:new_key]
   end
 
-  def test_should_use_default_proc_if_no_key_is_supplied
+  def test_should_return_nil_if_no_key_is_supplied
     hash_wia = HashWithIndifferentAccess.new { 1 +  2 }
-    assert_equal 3, hash_wia.default
+    assert_equal nil, hash_wia.default
   end
 
   def test_should_use_default_value_for_unknown_key

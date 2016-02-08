@@ -60,12 +60,10 @@ module ActionDispatch
       end
 
       def format(formatter, filter = nil)
-        routes_to_display = filter_routes(filter)
-
+        routes_to_display = filter_routes(normalize_filter(filter))
         routes = collect_routes(routes_to_display)
-
         if routes.none?
-          formatter.no_routes
+          formatter.no_routes(collect_routes(@routes))
           return formatter.result
         end
 
@@ -82,9 +80,19 @@ module ActionDispatch
 
       private
 
+      def normalize_filter(filter)
+        if filter.is_a?(Hash) && filter[:controller]
+          { controller: /#{filter[:controller].downcase.sub(/_?controller\z/, '').sub('::', '/')}/ }
+        elsif filter
+          { controller: /#{filter}/, action: /#{filter}/ }
+        end
+      end
+
       def filter_routes(filter)
         if filter
-          @routes.select { |route| route.defaults[:controller] == filter }
+          @routes.select do |route|
+            filter.any? { |default, value| route.defaults[default] =~ value }
+          end
         else
           @routes
         end
@@ -136,14 +144,18 @@ module ActionDispatch
         @buffer << draw_header(routes)
       end
 
-      def no_routes
-        @buffer << <<-MESSAGE.strip_heredoc
+      def no_routes(routes)
+        @buffer <<
+        if routes.none?
+          <<-MESSAGE.strip_heredoc
           You don't have any routes defined!
 
           Please add some routes in config/routes.rb.
-
-          For more information about routes, see the Rails guide: http://guides.rubyonrails.org/routing.html.
           MESSAGE
+        else
+          "No routes were found for this controller"
+        end
+        @buffer << "For more information about routes, see the Rails guide: http://guides.rubyonrails.org/routing.html."
       end
 
       private
@@ -187,7 +199,7 @@ module ActionDispatch
       def header(routes)
       end
 
-      def no_routes
+      def no_routes(*)
         @buffer << <<-MESSAGE.strip_heredoc
           <p>You don't have any routes defined!</p>
           <ul>

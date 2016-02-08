@@ -27,6 +27,12 @@ class ParametersAccessorsTest < ActiveSupport::TestCase
     assert_not @params[:person][:name].permitted?
   end
 
+  test "as_json returns the JSON representation of the parameters hash" do
+    assert_not @params.as_json.key? "parameters"
+    assert_not @params.as_json.key? "permitted"
+    assert @params.as_json.key? "person"
+  end
+
   test "each carries permitted status" do
     @params.permit!
     @params.each { |key, value| assert(value.permitted?) if key == "person" }
@@ -121,5 +127,11 @@ class ParametersAccessorsTest < ActiveSupport::TestCase
   test "values_at retains unpermitted status" do
     assert_not @params.values_at(:person).first.permitted?
     assert_not @params[:person].values_at(:name).first.permitted?
+  end
+
+  test "equality with another hash works" do
+    hash1 = { foo: :bar }
+    params1 = ActionController::Parameters.new(hash1)
+    assert(params1 == hash1)
   end
 end

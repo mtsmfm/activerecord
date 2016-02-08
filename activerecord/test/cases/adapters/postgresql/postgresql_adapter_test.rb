@@ -53,12 +53,6 @@ module ActiveRecord
         end
       end
 
-      def test_composite_primary_key
-        with_example_table 'id serial, number serial, PRIMARY KEY (id, number)' do
-          assert_nil @connection.primary_key('ex')
-        end
-      end
-
       def test_primary_key_raises_error_if_table_not_found
         assert_raises(ActiveRecord::StatementInvalid) do
           @connection.primary_key('unobtainium')
@@ -139,8 +133,8 @@ module ActiveRecord
 
       def test_sql_for_insert_with_returning_disabled
         connection = connection_without_insert_returning
-        result = connection.sql_for_insert('sql', nil, nil, nil, 'binds')
-        assert_equal ['sql', 'binds'], result
+        sql, binds = connection.sql_for_insert('sql', nil, nil, nil, 'binds')
+        assert_equal ['sql', 'binds'], [sql, binds]
       end
 
       def test_serial_sequence
@@ -320,11 +314,6 @@ module ActiveRecord
 
           assert_equal [[1, 'foo']], result.rows
         end
-      end
-
-      def test_substitute_at
-        bind = @connection.substitute_at(nil)
-        assert_equal Arel.sql('$1'), bind.to_sql
       end
 
       def test_partial_index

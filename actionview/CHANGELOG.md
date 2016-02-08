@@ -1,8 +1,21 @@
+## Rails 5.0.0.beta2 (February 01, 2016) ##
+
+*   Fix stripping the digest from the automatically generated img tag alt
+    attribute when assets are handled by Sprockets >=3.0.
+
+    *Bart de Water*
+
+*   Create a new `ActiveSupport::SafeBuffer` instance when `content_for` is flushed.
+
+    Fixes #19890
+
+    *Yoong Kang Lim*
+
 *   Fix `collection_radio_buttons` hidden_field name and make it appear
     before the actual input radio tags to make the real value override
     the hidden when passed.
 
-    Fixes #22773
+    Fixes #22773.
 
     *Santiago Pastorino*
 

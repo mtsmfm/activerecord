@@ -69,7 +69,7 @@ module ActiveRecord
       def initialize(
         name,
         polymorphic: false,
-        index: false,
+        index: true,
         foreign_key: false,
         type: :integer,
         **options
@@ -182,6 +182,7 @@ module ActiveRecord
           end
         CODE
       end
+      alias_method :numeric, :decimal
     end
 
     # Represents the schema of an SQL table in an abstract way. This class
@@ -436,6 +437,7 @@ module ActiveRecord
     #     t.bigint
     #     t.float
     #     t.decimal
+    #     t.numeric
     #     t.datetime
     #     t.timestamp
     #     t.time

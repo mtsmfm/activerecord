@@ -1164,6 +1164,7 @@ module ActiveRecord
       #   Adds one or more objects to the collection by setting their foreign keys to the collection's primary key.
       #   Note that this operation instantly fires update SQL without waiting for the save or update call on the
       #   parent object, unless the parent object is a new record.
+      #   This will also run validations and callbacks of associated object(s).
       # [collection.delete(object, ...)]
       #   Removes one or more objects from the collection by setting their foreign keys to +NULL+.
       #   Objects will be in addition destroyed if they're associated with <tt>dependent: :destroy</tt>,
@@ -1592,6 +1593,8 @@ module ActiveRecord
       #   If true, the associated object will be touched (the updated_at/on attributes set to current time)
       #   when this record is either saved or destroyed. If you specify a symbol, that attribute
       #   will be updated with the current time in addition to the updated_at/on attribute.
+      #   Please note that with touching no validation is performed and only the +after_touch+,
+      #   +after_commit+ and +after_rollback+ callbacks are executed.
       # [:inverse_of]
       #   Specifies the name of the #has_one or #has_many association on the associated
       #   object that is the inverse of this #belongs_to association. Does not work in

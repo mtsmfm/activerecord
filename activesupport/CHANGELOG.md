@@ -1,13 +1,44 @@
+*  Fix regression in `Hash#dig` for HashWithIndifferentAccess.
+   *Jon Moss*
+
+## Rails 5.0.0.beta2 (February 01, 2016) ##
+
+*   Change number_to_currency behavior for checking negativity.
+
+    Used `to_f.negative` instead of using `to_f.phase` for checking negativity
+    of a number in number_to_currency helper.
+    This change works same for all cases except when number is "-0.0".
+
+        -0.0.to_f.negative? => false
+        -0.0.to_f.phase? => 3.14
+
+    This change reverts changes from https://github.com/rails/rails/pull/6512.
+    But it should be acceptable as we could not find any currency which
+    supports negative zeros.
+
+    *Prathamesh Sonpatki*, *Rafael Mendonça França*
+
+*   Match `HashWithIndifferentAccess#default`'s behaviour with `Hash#default`.
+
+    *David Cornu*
+
+*   Adds `:exception_object` key to `ActiveSupport::Notifications::Instrumenter`
+    payload when an exception is raised.
+
+    Adds new key/value pair to payload when an exception is raised:
+    e.g. `:exception_object => #<RuntimeError: FAIL>`.
+
+    *Ryan T. Hosford*
+
 *   Support extended grapheme clusters and UAX 29.
 
     *Adam Roben*
 
-
-## Rails 5.0.0.beta1 (December 18, 2015) ##
-
 *   Add petabyte and exabyte numeric conversion.
 
     *Akshay Vishnoi*
+
+## Rails 5.0.0.beta1 (December 18, 2015) ##
 
 *   Add thread_m/cattr_accessor/reader/writer suite of methods for declaring class and module variables that live per-thread.
     This makes it easy to declare per-thread globals that are encapsulated. Note: This is a sharp edge. A wild proliferation
@@ -16,44 +47,44 @@
     Here's an example of a simple event tracking system where the object being tracked needs not pass a creator that it
     doesn't need itself along:
 
-    module Current
-      thread_mattr_accessor :account
-      thread_mattr_accessor :user
+        module Current
+          thread_mattr_accessor :account
+          thread_mattr_accessor :user
 
-      def self.reset() self.account = self.user = nil end
-    end
-
-    class ApplicationController < ActionController::Base
-      before_action :set_current
-      after_action { Current.reset }
-
-      private
-        def set_current
-          Current.account = Account.find(params[:account_id])
-          Current.user    = Current.account.users.find(params[:user_id])
+          def self.reset() self.account = self.user = nil end
         end
-    end
 
-    class MessagesController < ApplicationController
-      def create
-        @message = Message.create!(message_params)
-      end
-    end
+        class ApplicationController < ActionController::Base
+          before_action :set_current
+          after_action { Current.reset }
 
-    class Message < ApplicationRecord
-      has_many :events
-      after_create :track_created
-
-      private
-        def track_created
-          events.create! origin: self, action: :create
+          private
+            def set_current
+              Current.account = Account.find(params[:account_id])
+              Current.user    = Current.account.users.find(params[:user_id])
+            end
         end
-    end
 
-    class Event < ApplicationRecord
-      belongs_to :creator, class_name: 'User'
-      before_validation { self.creator ||= Current.user }
-    end
+        class MessagesController < ApplicationController
+          def create
+            @message = Message.create!(message_params)
+          end
+        end
+
+        class Message < ApplicationRecord
+          has_many :events
+          after_create :track_created
+
+          private
+            def track_created
+              events.create! origin: self, action: :create
+            end
+        end
+
+        class Event < ApplicationRecord
+          belongs_to :creator, class_name: 'User'
+          before_validation { self.creator ||= Current.user }
+        end
 
     *DHH*
 
