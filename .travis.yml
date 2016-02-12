@@ -14,15 +14,7 @@ before_script:
 cache: bundler
 env:
   matrix:
-    - "GEM=railties"
-    - "GEM=ap"
-    - "GEM=ac"
-    - "GEM=am,amo,as,av,aj"
-    - "GEM=ar:mysql2"
-    - "GEM=ar:sqlite3"
     - "GEM=ar:postgresql"
-    - "GEM=aj:integration"
-    - "GEM=guides"
 rvm:
   - 2.2.4
   - 2.3.0
@@ -50,3 +42,6 @@ services:
   - rabbitmq
 addons:
   postgresql: "9.4"
+  apt:
+    packages:
+    - postgresql-9.4
