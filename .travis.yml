@@ -51,8 +51,5 @@ services:
 addons:
   postgresql: "9.4"
   apt:
-    sources:
-    - precise-pgdg-9.4
     packages:
     - postgresql-9.4
-    - postgresql-contrib-9.4
