@@ -30,14 +30,6 @@ module ActiveSupport
       HANGUL_NCOUNT = HANGUL_VCOUNT * HANGUL_TCOUNT
       HANGUL_SCOUNT = 11172
       HANGUL_SLAST = HANGUL_SBASE + HANGUL_SCOUNT
-      HANGUL_JAMO_FIRST = 0x1100
-      HANGUL_JAMO_LAST = 0x11FF
-
-      # Returns a regular expression pattern that matches the passed Unicode
-      # codepoints.
-      def self.codepoints_to_pattern(array_of_codepoints) #:nodoc:
-        array_of_codepoints.collect { |e| [e].pack "U*".freeze }.join("|".freeze)
-      end
 
       # Detect whether the codepoint is in a certain character class. Returns
       # +true+ when it's in the specified character class and +false+ otherwise.
