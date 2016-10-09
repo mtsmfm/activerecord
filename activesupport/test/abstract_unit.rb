@@ -36,4 +36,8 @@ class ActiveSupport::TestCase
   private def jruby_skip(message = "")
     skip message if defined?(JRUBY_VERSION)
   end
+
+  private def grapheme_skip
+    skip "Ruby doesn't have \"true\" extended grapheme cluster: https://github.com/k-takata/Onigmo/issues/46" if Gem::Version.new(RUBY_VERSION) < Gem::Version.new("2.4.0")
+  end
 end

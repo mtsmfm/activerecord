@@ -4,7 +4,6 @@ sudo: false
 cache:
   bundler: true
   directories:
-    - /tmp/cache/unicode_conformance
     - /tmp/beanstalkd-1.10
 
 services:
