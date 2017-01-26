@@ -1,3 +1,7 @@
+*   Updated Unicode version to 9.0.0
+
+    *Fumiaki MATSUSHIMA*
+
 *   Changed `ActiveSupport::Inflector#transliterate` to raise `ArgumentError` when it receives
     anything except a string.
 
